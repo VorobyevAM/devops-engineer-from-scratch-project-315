@@ -63,7 +63,7 @@ postgresql = "42.7.13"
 ##      ⬆ = "42.7.6"
 ##      ⬆ = "42.7.7"
 ##      ⬆ = "42.7.8"
-aws-sdk = "2.54.7"
+aws-sdk = "2.54.10"
 
 ##   ⬆ = "2.29.16"
 ##   ⬆ = "2.29.17"
@@ -343,7 +343,7 @@ junitJupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junitPlatformLauncher = { module = "org.junit.platform:junit-platform-launcher" }
 mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
 mapstructProcessor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
-lombok = "org.projectlombok:lombok:1.18.46"
+lombok = "org.projectlombok:lombok:1.18.48"
 ##                                                   ⬆ = "1.18.36" }
 ##                                                   ⬆ = "1.18.38" }
 ##                                                   ⬆ = "1.18.40" }
