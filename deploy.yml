@@ -1,0 +1,6 @@
+---
+- name: Deploy bulletin board container
+  hosts: app_servers
+  become: true
+  roles:
+    - role: bulletin_app

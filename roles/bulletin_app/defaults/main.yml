@@ -1,0 +1,21 @@
+---
+app_name: bulletin-board
+app_container_name: bulletin-board
+app_image: ghcr.io/vorobyevam/devops-engineer-from-scratch-project-315
+app_image_tag: latest
+app_registry: ghcr.io
+app_host_port: 8080
+app_container_port: 8080
+app_management_host_port: 9090
+app_management_container_port: 9090
+app_base_dir: /opt/bulletin-board
+app_data_dir: "{{ app_base_dir }}/data"
+app_logs_dir: "{{ app_base_dir }}/logs"
+app_pull_policy: always
+
+app_env:
+  SPRING_PROFILES_ACTIVE: dev
+  MANAGEMENT_SERVER_PORT: "{{ app_management_container_port }}"
+  JAVA_OPTS: "-Djava.io.tmpdir=/app/data/tmp"
+
+app_secret_env: {}

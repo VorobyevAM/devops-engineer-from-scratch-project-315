@@ -1,0 +1,79 @@
+---
+- name: Prepare Docker host for bulletin board deployment
+  hosts: app_servers
+  become: true
+  vars:
+    docker_users:
+      - "{{ ansible_user }}"
+    docker_install_compose_plugin: true
+    docker_install_compose: false
+    allowed_tcp_ports:
+      - "22"
+      - "80"
+      - "443"
+      - "8080"
+      - "9090"
+
+  pre_tasks:
+    - name: Refresh apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - git
+          - gnupg
+          - htop
+          - python3
+          - python3-docker
+          - python3-pip
+          - ufw
+          - unzip
+        state: present
+      when: ansible_os_family == "Debian"
+
+  roles:
+    - role: geerlingguy.docker
+
+  tasks:
+    - name: Allow required TCP ports
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ allowed_tcp_ports }}"
+
+    - name: Deny incoming traffic by default
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Allow outgoing traffic by default
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Enable firewall
+      community.general.ufw:
+        state: enabled
+
+    - name: Check Docker Engine
+      ansible.builtin.command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Check Docker Compose plugin
+      ansible.builtin.command: docker compose version
+      register: docker_compose_version
+      changed_when: false
+
+    - name: Show installed Docker versions
+      ansible.builtin.debug:
+        msg:
+          - "{{ docker_version.stdout }}"
+          - "{{ docker_compose_version.stdout }}"

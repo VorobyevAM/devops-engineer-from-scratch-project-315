@@ -1,0 +1,10 @@
+.git
+.github
+.gradle
+.idea
+.vscode
+build
+frontend/dist
+frontend/node_modules
+out
+HELP.md

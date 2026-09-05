@@ -1,0 +1,60 @@
+---
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ app_base_dir }}"
+      mode: "0755"
+    - path: "{{ app_data_dir }}"
+      mode: "0777"
+    - path: "{{ app_data_dir }}/tmp"
+      mode: "0777"
+    - path: "{{ app_logs_dir }}"
+      mode: "0755"
+
+- name: Log in to container registry
+  community.docker.docker_login:
+    registry_url: "{{ app_registry }}"
+    username: "{{ app_registry_username }}"
+    password: "{{ app_registry_password }}"
+  when:
+    - app_registry_username is defined
+    - app_registry_password is defined
+  no_log: true
+
+- name: Pull application image
+  community.docker.docker_image_pull:
+    name: "{{ app_image }}:{{ app_image_tag }}"
+    pull: "{{ app_pull_policy }}"
+
+- name: Run application container
+  community.docker.docker_container:
+    name: "{{ app_container_name }}"
+    image: "{{ app_image }}:{{ app_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    pull: never
+    recreate: false
+    env: "{{ app_env | combine(app_secret_env | default({})) }}"
+    published_ports:
+      - "{{ app_host_port }}:{{ app_container_port }}"
+      - "{{ app_management_host_port }}:{{ app_management_container_port }}"
+    volumes:
+      - "{{ app_data_dir }}:/app/data"
+      - "{{ app_logs_dir }}:/app/logs"
+    comparisons:
+      image: strict
+      env: strict
+      published_ports: strict
+      volumes: strict
+
+- name: Wait for application health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_management_host_port }}/actuator/health"
+    status_code: 200
+  register: app_health
+  retries: 30
+  delay: 2
+  until: app_health.status == 200

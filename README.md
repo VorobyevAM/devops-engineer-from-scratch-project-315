@@ -1,38 +1,153 @@
-# Доска объявлений(Iac)
+# Bulletin Board Service
 
-[![hexlet-check](https://github.com/VorobyevAM/devops-engineer-from-scratch-project-315/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/VorobyevAM/devops-engineer-from-scratch-project-315/actions)
+[![CI](https://github.com/VorobyevAM/devops-engineer-from-scratch-project-315/actions/workflows/ci.yml/badge.svg)](https://github.com/VorobyevAM/devops-engineer-from-scratch-project-315/actions/workflows/ci.yml)
 
-Автоматизация раскатывания контейнеризированного приложения на сервер в облаке
+Форк учебного проекта Hexlet с доской объявлений на Spring Boot и React Admin. Репозиторий подготовлен для локальной контейнерной сборки: фронтенд собирается в Docker, затем попадает в Spring Boot JAR, а рантайм-образ содержит только JRE и готовое приложение.
 
-Учебный проект Хекслета: https://ru.hexlet.io/programs/devops-engineer-from-scratch
-Как это должно работать: https://asciinema.org/a/v4evn7XjCdou7Yh71IG0ljb0W
+## What Is Built
 
-## Стек
+- Docker image repository: `ghcr.io/vorobyevam/devops-engineer-from-scratch-project-315`
+- Recommended tags: `latest` and a commit-based tag like `sha-<git-sha>`
+- Application port: `8080`
+- Management / Actuator port: `9090`
+- GitHub Actions workflow: tests on `push`/`pull_request` for `main`, image publish to `GHCR` only on successful `push` to `main`
+- Infrastructure target: Yandex Cloud VM configured by Ansible
 
-- Инструменты
+## Quick Start
 
-## Установка
-
-<!-- Опишите установку: клонирование, зависимости, переменные окружения -->
+Сборка образа:
 
 ```bash
-git clone https://github.com/VorobyevAM/devops-engineer-from-scratch-project-315.git
-cd devops-engineer-from-scratch-project-315
+make docker-build
 ```
 
-## Использование
+Запуск контейнера:
 
-<!-- Добавьте примеры запуска и запись asciinema — именно это смотрит работодатель -->
+```bash
+make docker-run
+```
 
----
+Прямой запуск через Docker:
 
-<details>
-<summary>Автоматические тесты Хекслета</summary>
+```bash
+docker run --rm \
+  --name project-devops-deploy \
+  -p 8080:8080 \
+  -p 9090:9090 \
+  ghcr.io/vorobyevam/devops-engineer-from-scratch-project-315:latest
+```
 
-Тесты запускаются на каждый коммит. За запуск отвечает файл `.github/workflows/hexlet-check.yml` — не удаляйте и не переименовывайте ни его, ни репозиторий.
+После старта приложение доступно по адресу `http://localhost:8080`, Swagger UI по `http://localhost:8080/swagger-ui/index.html`, а actuator endpoints по `http://localhost:9090/actuator`.
 
-</details>
+## Make Commands
 
-## О Хекслете
+- `make test` — запускает встроенные тесты Spring Boot
+- `make run` — локальный запуск backend в dev-профиле
+- `make build` — сборка Gradle-артефактов локально
+- `make docker-build` — сборка production Docker-образа
+- `make docker-run` — запуск контейнера из собранного образа
+- `make ansible-install` — установка внешних Ansible-ролей
+- `make ansible-check` — проверочный запуск плейбука в check-mode
+- `make ansible-run` — применение плейбука к серверу
+- `make deploy` — деплой Docker-контейнера на сервер
+- `make rollback IMAGE_TAG=sha-<git-sha>` — откат на конкретный стабильный тег образа
+- `make vault-create` — создание зашифрованного файла секретов Ansible Vault
+- `make vault-edit` — редактирование секретов Ansible Vault
 
-[Хекслет](https://ru.hexlet.io/) — школа программирования: авторские программы обучения с практикой, поддержкой наставников и реальными проектами, которые остаются в резюме. Этот репозиторий — один из таких проектов.
+## Infrastructure
+
+Минимальная инфраструктура ожидает одну ВМ в Yandex Cloud на Ubuntu 22.04/24.04 с публичным IP и SSH-доступом по ключу. После создания ВМ замените `CHANGE_ME` в `inventory.ini` на публичный IP или DNS-имя сервера и при необходимости измените `ansible_user`.
+
+Пример создания security group и ВМ через `yc`:
+
+```bash
+yc vpc security-group create \
+  --name bulletin-board-sg \
+  --network-name default \
+  --rule "direction=ingress,port=22,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
+  --rule "direction=ingress,port=80,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
+  --rule "direction=ingress,port=443,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
+  --rule "direction=ingress,port=8080,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
+  --rule "direction=ingress,port=9090,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
+  --rule "direction=egress,protocol=any,v4-cidrs=[0.0.0.0/0]"
+
+yc compute instance create \
+  --name bulletin-board \
+  --hostname bulletin-board \
+  --zone ru-central1-a \
+  --memory 2G \
+  --cores 2 \
+  --network-interface subnet-name=default-ru-central1-a,nat-ip-version=ipv4,security-group-ids=<security-group-id> \
+  --create-boot-disk image-folder-id=standard-images,image-family=ubuntu-2204-lts,size=20G,auto-delete=true \
+  --ssh-key ~/.ssh/id_ed25519.pub
+```
+
+После создания проверьте SSH-доступ:
+
+```bash
+ssh yc-user@<vm-public-ip>
+```
+
+Подготовка сервера:
+
+```bash
+make ansible-install
+make ansible-check
+make ansible-run
+```
+
+Плейбук `playbook.yml` устанавливает базовые утилиты, Docker Engine, Docker Compose plugin, добавляет SSH-пользователя в группу `docker` и настраивает UFW firewall. Открыты только TCP-порты `22`, `80`, `443`, `8080` и `9090`; входящий трафик по умолчанию запрещён, исходящий разрешён.
+
+## Deployment
+
+Деплой выполняется отдельным playbook `deploy.yml`, который подтягивает Docker-образ, запускает контейнер и ждёт готовности actuator health endpoint:
+
+```bash
+make deploy
+```
+
+Для деплоя конкретной версии используйте тег образа:
+
+```bash
+make deploy IMAGE_TAG=sha-abcdef1
+```
+
+Откат выполняется тем же механизмом через стабильный предыдущий тег:
+
+```bash
+make rollback IMAGE_TAG=sha-previous
+```
+
+Несекретные настройки лежат в `group_vars/app_servers.yml`. Секреты для production-профиля, базы данных, S3 или private registry нужно хранить в `group_vars/app_servers/vault.yml`, зашифрованном Ansible Vault:
+
+```bash
+cp group_vars/app_servers/vault.yml.example group_vars/app_servers/vault.yml
+ansible-vault encrypt group_vars/app_servers/vault.yml
+```
+
+Каталоги `/opt/bulletin-board/data` и `/opt/bulletin-board/logs` создаются на сервере автоматически и монтируются в контейнер. Для локального хранения загрузок приложение использует `/app/data/tmp`, поэтому данные переживают перезапуск контейнера.
+
+Если pull из `GHCR` завершается ошибкой `denied`, проверьте два сценария:
+
+1. Образ ещё не опубликован. Запушьте изменения в `main` и дождитесь успешного workflow `CI`, который публикует `latest` и `sha-<git-sha>`.
+2. Package приватный. Сделайте package публичным в GitHub Packages или добавьте credentials в `group_vars/app_servers/vault.yml`:
+
+```yaml
+app_registry_username: your-github-login
+app_registry_password: ghp_token_with_read_packages
+```
+
+После этого запускайте деплой с запросом пароля Vault:
+
+```bash
+ansible-playbook deploy.yml --ask-vault-pass -e app_image_tag=latest
+```
+
+## Notes
+
+- Dockerfile использует multi-stage build: отдельно собирает фронтенд, затем backend и тесты, а в финальный образ кладёт только JAR.
+- По умолчанию используется `dev` профиль с H2, поэтому контейнер стартует без внешней PostgreSQL.
+- Исходный upstream-репозиторий `Hexlet-components/project-devops-deploy` остаётся read-only; все изменения ведутся только в этом форке.
+- Workflow публикует теги `latest` и `sha-<7 символов коммита>` в `GHCR` через `GITHUB_TOKEN`, без хранения токенов и паролей в репозитории.
+- Ansible-плейбук рассчитан на повторные запуски: пакеты, Docker, compose plugin, firewall rules и membership в `docker` group описаны декларативно.
+- Деплой-плейбук тоже можно запускать повторно: образ подтягивается из registry, а контейнер пересоздаётся только при изменении образа или его параметров.
