@@ -13,6 +13,7 @@
       - "22"
       - "80"
       - "443"
+    denied_tcp_ports:
       - "8080"
       - "9090"
 
@@ -44,6 +45,27 @@
     - role: geerlingguy.docker
 
   tasks:
+    - name: Create Nginx cache directory
+      ansible.builtin.file:
+        path: /var/cache/nginx/bulletin-board
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Configure Nginx cache storage
+      ansible.builtin.copy:
+        dest: /etc/nginx/conf.d/bulletin-board-cache.conf
+        mode: "0644"
+        content: |
+          proxy_cache_path /var/cache/nginx/bulletin-board
+              levels=1:2
+              keys_zone=bulletin_board_static:20m
+              max_size=256m
+              inactive=24h
+              use_temp_path=off;
+      notify: Reload nginx
+
     - name: Configure Nginx reverse proxy
       ansible.builtin.copy:
         dest: /etc/nginx/sites-available/bulletin-board
@@ -53,6 +75,65 @@
               listen 80;
               server_name {{ app_domain }};
 
+              gzip on;
+              gzip_types
+                  application/javascript
+                  application/json
+                  image/svg+xml
+                  text/css
+                  text/plain;
+
+              location /assets/ {
+                  proxy_pass http://127.0.0.1:{{ app_host_port }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_cache bulletin_board_static;
+                  proxy_cache_valid 200 30d;
+                  proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+                  add_header Cache-Control "public, max-age=2592000, immutable" always;
+                  add_header X-Cache-Status $upstream_cache_status always;
+              }
+
+              location ~* ^/(favicon\.ico|manifest\.json|robots\.txt)$ {
+                  proxy_pass http://127.0.0.1:{{ app_host_port }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_cache bulletin_board_static;
+                  proxy_cache_valid 200 7d;
+                  add_header Cache-Control "public, max-age=604800" always;
+                  add_header X-Cache-Status $upstream_cache_status always;
+              }
+
+              location ~* ^/api/files/(view|raw)$ {
+                  proxy_pass http://127.0.0.1:{{ app_host_port }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_cache bulletin_board_static;
+                  proxy_cache_valid 200 1h;
+                  proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+                  add_header Cache-Control "public, max-age=3600" always;
+                  add_header X-Cache-Status $upstream_cache_status always;
+              }
+
+              location /api/ {
+                  proxy_pass http://127.0.0.1:{{ app_host_port }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  add_header Cache-Control "no-store" always;
+              }
+
               location / {
                   proxy_pass http://127.0.0.1:{{ app_host_port }};
                   proxy_http_version 1.1;
@@ -60,6 +141,7 @@
                   proxy_set_header X-Real-IP $remote_addr;
                   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                   proxy_set_header X-Forwarded-Proto $scheme;
+                  add_header Cache-Control "no-cache" always;
               }
           }
       notify: Reload nginx
@@ -81,12 +163,23 @@
       ansible.builtin.command: nginx -t
       changed_when: false
 
+    - name: Apply Nginx configuration
+      ansible.builtin.meta: flush_handlers
+
     - name: Allow required TCP ports
       community.general.ufw:
         rule: allow
         port: "{{ item }}"
         proto: tcp
       loop: "{{ allowed_tcp_ports }}"
+
+    - name: Remove direct public access to application ports
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+        delete: true
+      loop: "{{ denied_tcp_ports }}"
 
     - name: Deny incoming traffic by default
       community.general.ufw:

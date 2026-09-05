@@ -6,6 +6,7 @@ app_image_tag: latest
 app_registry: ghcr.io
 app_domain: ""
 app_network: bulletin-board
+app_host_bind_ip: 127.0.0.1
 app_host_port: 8080
 app_container_port: 8080
 app_management_host_port: 9090

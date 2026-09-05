@@ -129,8 +129,8 @@
     networks:
       - name: "{{ app_network }}"
     published_ports:
-      - "{{ app_host_port }}:{{ app_container_port }}"
-      - "{{ app_management_host_port }}:{{ app_management_container_port }}"
+      - "{{ app_host_bind_ip }}:{{ app_host_port }}:{{ app_container_port }}"
+      - "{{ app_host_bind_ip }}:{{ app_management_host_port }}:{{ app_management_container_port }}"
     volumes:
       - "{{ app_data_dir }}:/app/data"
       - "{{ app_logs_dir }}:/app/logs"

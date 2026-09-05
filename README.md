@@ -100,13 +100,15 @@ make ansible-check
 make ansible-run
 ```
 
-Плейбук `playbook.yml` устанавливает базовые утилиты, Docker Engine, Docker Compose plugin, Nginx reverse proxy, добавляет SSH-пользователя в группу `docker` и настраивает UFW firewall. Открыты только TCP-порты `22`, `80`, `443`, `8080` и `9090`; входящий трафик по умолчанию запрещён, исходящий разрешён.
+Плейбук `playbook.yml` устанавливает базовые утилиты, Docker Engine, Docker Compose plugin, Nginx reverse proxy, добавляет SSH-пользователя в группу `docker` и настраивает UFW firewall. Публично открыты только TCP-порты `22`, `80` и `443`; приложение и actuator публикуются на `127.0.0.1` и доступны снаружи только через Nginx.
 
 После применения инфраструктурного плейбука публичный вход в приложение доступен через Nginx:
 
 ```text
 http://hexlet-vorobev.chickenkiller.com
 ```
+
+Nginx проксирует динамические API-запросы к Spring Boot без кеширования, а статические frontend-файлы (`/assets/*`, `favicon.ico`, `manifest.json`, `robots.txt`) кеширует на своей стороне. Для файловых endpoint'ов `/api/files/view` и `/api/files/raw` настроен короткий proxy cache, чтобы повторные обращения к пользовательским файлам не били напрямую в приложение при каждом запросе.
 
 ## Deployment
 
@@ -150,6 +152,12 @@ app_secret_env:
 
 ```bash
 make deploy
+```
+
+Для неинтерактивного запуска можно передать файл с паролем Vault:
+
+```bash
+make deploy VAULT_PASSWORD_FILE=/path/to/vault-password
 ```
 
 Каталоги `/opt/bulletin-board/data`, `/opt/bulletin-board/logs`, `/opt/bulletin-board/migrations` и `/opt/bulletin-board/postgres` создаются на сервере автоматически. PostgreSQL хранит данные в `/opt/bulletin-board/postgres`, поэтому данные переживают перезапуск контейнеров. Приложение и БД общаются через приватную Docker-сеть `bulletin-board`; порт PostgreSQL наружу не публикуется.
