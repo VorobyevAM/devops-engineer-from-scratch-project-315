@@ -1,10 +1,14 @@
 .git
 .github
+.ansible
 .gradle
 .idea
 .vscode
 build
 frontend/dist
 frontend/node_modules
+group_vars/**/vault.yml
+.vault_pass
+vault-password*
 out
 HELP.md
