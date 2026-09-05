@@ -15,6 +15,7 @@ app_base_dir: /opt/bulletin-board
 app_data_dir: "{{ app_base_dir }}/data"
 app_logs_dir: "{{ app_base_dir }}/logs"
 app_migrations_dir: "{{ app_base_dir }}/migrations"
+app_static_dir: "{{ app_base_dir }}/static"
 app_pull_policy: always
 
 postgres_container_name: bulletin-board-postgres

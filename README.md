@@ -102,13 +102,23 @@ make ansible-run
 
 Плейбук `playbook.yml` устанавливает базовые утилиты, Docker Engine, Docker Compose plugin, Nginx reverse proxy, добавляет SSH-пользователя в группу `docker` и настраивает UFW firewall. Публично открыты только TCP-порты `22`, `80` и `443`; приложение и actuator публикуются на `127.0.0.1` и доступны снаружи только через Nginx.
 
-После применения инфраструктурного плейбука публичный вход в приложение доступен через Nginx:
+После применения инфраструктурного плейбука публичный вход в приложение доступен через Nginx и HTTPS:
 
 ```text
-http://hexlet-vorobev.chickenkiller.com
+https://hexlet-vorobev.chickenkiller.com
 ```
 
-Nginx проксирует динамические API-запросы к Spring Boot без кеширования, а статические frontend-файлы (`/assets/*`, `favicon.ico`, `manifest.json`, `robots.txt`) кеширует на своей стороне. Для файловых endpoint'ов `/api/files/view` и `/api/files/raw` настроен короткий proxy cache, чтобы повторные обращения к пользовательским файлам не били напрямую в приложение при каждом запросе.
+Nginx проксирует динамические API-запросы к Spring Boot без кеширования, а статические frontend-файлы (`/assets/*`, `favicon.ico`, `manifest.json`, `robots.txt`) отдаёт напрямую из `/opt/bulletin-board/static` и кеширует на стороне клиента. Для файловых endpoint'ов `/api/files/view` и `/api/files/raw` настроен короткий proxy cache, чтобы повторные обращения к пользовательским файлам не били напрямую в приложение при каждом запросе.
+
+Let's Encrypt сертификат выпускается через Certbot в `playbook.yml`. HTTP-порт `80` остаётся открытым для ACME challenge и редиректа на HTTPS. Продление сертификата выполняется системным `certbot.timer`, а deploy hook `/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh` перезагружает Nginx после обновления сертификата.
+
+Проверка HTTPS и автопродления на сервере:
+
+```bash
+curl -I https://hexlet-vorobev.chickenkiller.com
+systemctl status certbot.timer
+sudo certbot renew --dry-run
+```
 
 ## Deployment
 

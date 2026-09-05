@@ -38,6 +38,7 @@ WORKDIR /app
 RUN groupadd --system spring && useradd --system --gid spring --create-home spring
 
 COPY --from=backend-builder /app/build/libs/*.jar /app/app.jar
+COPY --from=frontend-builder /app/frontend/dist /app/static
 
 USER spring
 
