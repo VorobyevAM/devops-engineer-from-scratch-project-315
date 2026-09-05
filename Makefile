@@ -3,6 +3,8 @@ IMAGE_TAG ?= latest
 CONTAINER_NAME ?= project-devops-deploy
 APP_PORT ?= 8080
 MANAGEMENT_PORT ?= 9090
+VAULT_PASSWORD_FILE ?=
+VAULT_ARGS = $(if $(VAULT_PASSWORD_FILE),--vault-password-file $(VAULT_PASSWORD_FILE),--ask-vault-pass)
 
 test:
 	./gradlew test
@@ -43,12 +45,12 @@ ansible-ping:
 	ansible app_servers -m ping
 
 deploy:
-	ansible-playbook deploy.yml --ask-vault-pass -e app_image_tag=$(IMAGE_TAG)
+	ansible-playbook deploy.yml $(VAULT_ARGS) -e app_image_tag=$(IMAGE_TAG)
 
 rollback: deploy
 
 deploy-vault:
-	ansible-playbook deploy.yml --ask-vault-pass -e app_image_tag=$(IMAGE_TAG)
+	ansible-playbook deploy.yml $(VAULT_ARGS) -e app_image_tag=$(IMAGE_TAG)
 
 deploy-no-vault:
 	ansible-playbook deploy.yml -e app_image_tag=$(IMAGE_TAG)
