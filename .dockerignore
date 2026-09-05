@@ -1,6 +1,11 @@
 .git
 .github
 .ansible
+.ansible/
+.ansible/tmp
+.ansible/tmp/
+**/.ansible
+**/.ansible/
 .gradle
 .idea
 .vscode
