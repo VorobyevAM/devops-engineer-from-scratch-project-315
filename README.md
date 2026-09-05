@@ -117,7 +117,7 @@ Let's Encrypt сертификат выпускается через Certbot в 
 ```bash
 curl -I https://hexlet-vorobev.chickenkiller.com
 systemctl status certbot.timer
-sudo certbot renew --dry-run
+sudo certbot renew --dry-run --no-random-sleep-on-renew
 ```
 
 ## Deployment
