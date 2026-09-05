@@ -8,7 +8,7 @@ RUN npm --prefix frontend ci
 COPY frontend ./frontend
 RUN npm --prefix frontend run build
 
-FROM gradle:9.2.1-jdk21-ubi AS backend-builder
+FROM gradle:9.2.1-jdk21-jammy AS backend-builder
 
 WORKDIR /app
 
