@@ -2,6 +2,8 @@
 - name: Prepare Docker host for bulletin board deployment
   hosts: app_servers
   become: true
+  vars_files:
+    - group_vars/app_servers.yml
   vars:
     docker_users:
       - "{{ ansible_user }}"
