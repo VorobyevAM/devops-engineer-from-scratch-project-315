@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/VorobyevAM/devops-engineer-from-scratch-project-315/actions/workflows/ci.yml/badge.svg)](https://github.com/VorobyevAM/devops-engineer-from-scratch-project-315/actions/workflows/ci.yml)
 
-Форк учебного проекта Hexlet с доской объявлений на Spring Boot и React Admin. Репозиторий подготовлен для локальной контейнерной сборки: фронтенд собирается в Docker, затем попадает в Spring Boot JAR, а рантайм-образ содержит только JRE и готовое приложение.
+Форк учебного проекта Hexlet с доской объявлений на Spring Boot и React Admin. Репозиторий подготовлен для локальной контейнерной сборки: фронтенд собирается в Docker, попадает в Spring Boot JAR и дополнительно сохраняется в runtime image как `/app/static` для раздачи через Nginx.
 
 ## What Is Built
 
 - Docker image repository: `ghcr.io/vorobyevam/devops-engineer-from-scratch-project-315`
 - Recommended tags: `latest` and a commit-based tag like `sha-<git-sha>`
-- Public application URL: `http://hexlet-vorobev.chickenkiller.com`
+- Public application URL: `https://hexlet-vorobev.chickenkiller.com`
 - Application container port: `8080`
 - Management / Actuator port: `9090`
 - GitHub Actions workflow: tests on `push`/`pull_request` for `main`, image publish to `GHCR` only on successful `push` to `main`
@@ -58,9 +58,28 @@ docker run --rm \
 - `make vault-create` — создание зашифрованного файла секретов Ansible Vault
 - `make vault-edit` — редактирование секретов Ansible Vault
 
+## Deployment Requirements
+
+Local host:
+
+- Docker with Buildx for local image builds
+- Java 21 for local Gradle tests
+- Node.js 24 and npm for frontend checks
+- Ansible, installed roles and collections from `requirements.yml`
+- SSH key with access to the target VM
+- Ansible Vault password or `VAULT_PASSWORD_FILE`
+
+Target host:
+
+- Ubuntu 22.04/24.04 VM with a public IPv4 address
+- At least 2 CPU cores, 2 GB RAM and 20 GB disk for Docker image pulls, PostgreSQL and the app
+- Open inbound TCP ports `22`, `80` and `443`
+- DNS A-record pointing the application domain to the VM public IP
+- Outbound internet access for Docker/GHCR, apt packages, Let's Encrypt and S3
+
 ## Infrastructure
 
-Минимальная инфраструктура ожидает одну ВМ в Yandex Cloud на Ubuntu 22.04/24.04 с публичным IP и SSH-доступом по ключу. После создания ВМ замените `CHANGE_ME` в `inventory.ini` на публичный IP или DNS-имя сервера и при необходимости измените `ansible_user`.
+Минимальная инфраструктура ожидает одну ВМ в Yandex Cloud на Ubuntu 22.04/24.04 с публичным IP и SSH-доступом по ключу. Адрес целевой ВМ и SSH-пользователь описаны в `inventory.ini`; при переносе проекта на другой сервер измените `ansible_host` и при необходимости `ansible_user`.
 
 Пример создания security group и ВМ через `yc`:
 
@@ -71,8 +90,6 @@ yc vpc security-group create \
   --rule "direction=ingress,port=22,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
   --rule "direction=ingress,port=80,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
   --rule "direction=ingress,port=443,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
-  --rule "direction=ingress,port=8080,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
-  --rule "direction=ingress,port=9090,protocol=tcp,v4-cidrs=[0.0.0.0/0]" \
   --rule "direction=egress,protocol=any,v4-cidrs=[0.0.0.0/0]"
 
 yc compute instance create \
@@ -220,8 +237,8 @@ make deploy
 Проверка загрузки и получения ссылки:
 
 ```bash
-curl -F "file=@/path/to/image.png" http://hexlet-vorobev.chickenkiller.com/api/files/upload
-curl "http://hexlet-vorobev.chickenkiller.com/api/files/view?key=<key-from-upload-response>"
+curl -F "file=@/path/to/image.png" https://hexlet-vorobev.chickenkiller.com/api/files/upload
+curl "https://hexlet-vorobev.chickenkiller.com/api/files/view?key=<key-from-upload-response>"
 ```
 
 Если S3-переменные заполнены, приложение использует S3. Если они пустые, приложение переключается на локальное файловое хранилище внутри volume `/opt/bulletin-board/data`.
@@ -265,7 +282,7 @@ make deploy
 
 ```yaml
 app_registry_username: your-github-login
-app_registry_password: ghp_token_with_read_packages
+app_registry_password: <github-token-with-read-packages>
 ```
 
 После этого запускайте деплой с запросом пароля Vault:

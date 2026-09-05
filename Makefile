@@ -36,10 +36,10 @@ ansible-install:
 	ansible-galaxy collection install -r requirements.yml -p .ansible/collections
 
 ansible-check:
-	ansible-playbook playbook.yml --check --diff
+	ansible-playbook playbook.yml $(VAULT_ARGS) --check --diff
 
 ansible-run:
-	ansible-playbook playbook.yml
+	ansible-playbook playbook.yml $(VAULT_ARGS)
 
 ansible-ping:
 	ansible app_servers -m ping

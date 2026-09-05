@@ -6,6 +6,7 @@ app_image_tag: latest
 app_registry: ghcr.io
 app_domain: hexlet-vorobev.chickenkiller.com
 app_network: bulletin-board
+app_host_bind_ip: 127.0.0.1
 app_host_port: 8080
 app_container_port: 8080
 app_management_host_port: 9090
@@ -14,7 +15,21 @@ app_base_dir: /opt/bulletin-board
 app_data_dir: "{{ app_base_dir }}/data"
 app_logs_dir: "{{ app_base_dir }}/logs"
 app_migrations_dir: "{{ app_base_dir }}/migrations"
+app_static_dir: "{{ app_base_dir }}/static"
 app_pull_policy: always
+
+certbot_email: vorobyev.93@mail.ru
+letsencrypt_webroot: /var/www/letsencrypt
+letsencrypt_live_dir: "/etc/letsencrypt/live/{{ app_domain }}"
+
+allowed_tcp_ports:
+  - "22"
+  - "80"
+  - "443"
+
+denied_tcp_ports:
+  - "8080"
+  - "9090"
 
 postgres_container_name: bulletin-board-postgres
 postgres_image: postgres:16-alpine

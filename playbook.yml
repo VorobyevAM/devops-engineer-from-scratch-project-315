@@ -7,19 +7,6 @@
       - "{{ ansible_user }}"
     docker_install_compose_plugin: true
     docker_install_compose: false
-    app_domain: hexlet-vorobev.chickenkiller.com
-    app_host_port: 8080
-    app_static_dir: /opt/bulletin-board/static
-    certbot_email: vorobyev.93@mail.ru
-    letsencrypt_webroot: /var/www/letsencrypt
-    letsencrypt_live_dir: "/etc/letsencrypt/live/{{ app_domain }}"
-    allowed_tcp_ports:
-      - "22"
-      - "80"
-      - "443"
-    denied_tcp_ports:
-      - "8080"
-      - "9090"
 
   pre_tasks:
     - name: Refresh apt cache
