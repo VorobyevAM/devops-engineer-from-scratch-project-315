@@ -6,6 +6,9 @@ MANAGEMENT_PORT ?= 9090
 VAULT_PASSWORD_FILE ?=
 VAULT_ARGS = $(if $(VAULT_PASSWORD_FILE),--vault-password-file $(VAULT_PASSWORD_FILE),--ask-vault-pass)
 
+setup:
+	@echo "No extra host setup required; Dockerfile installs build dependencies."
+
 test:
 	./gradlew test
 
@@ -62,4 +65,4 @@ vault-create:
 vault-edit:
 	ansible-vault edit group_vars/app_servers/vault.yml
 
-.PHONY: build test start run install docker-build docker-run docker-start update-gradle ansible-install ansible-check ansible-run ansible-ping deploy rollback deploy-vault deploy-no-vault vault-create vault-edit
+.PHONY: setup build test start run install docker-build docker-run docker-start update-gradle ansible-install ansible-check ansible-run ansible-ping deploy rollback deploy-vault deploy-no-vault vault-create vault-edit
