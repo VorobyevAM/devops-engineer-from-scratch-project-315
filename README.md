@@ -8,7 +8,8 @@
 
 - Docker image repository: `ghcr.io/vorobyevam/devops-engineer-from-scratch-project-315`
 - Recommended tags: `latest` and a commit-based tag like `sha-<git-sha>`
-- Application port: `8080`
+- Public application URL: `http://hexlet-vorobev.chickenkiller.com`
+- Application container port: `8080`
 - Management / Actuator port: `9090`
 - GitHub Actions workflow: tests on `push`/`pull_request` for `main`, image publish to `GHCR` only on successful `push` to `main`
 - Infrastructure target: Yandex Cloud VM configured by Ansible
@@ -99,7 +100,13 @@ make ansible-check
 make ansible-run
 ```
 
-Плейбук `playbook.yml` устанавливает базовые утилиты, Docker Engine, Docker Compose plugin, добавляет SSH-пользователя в группу `docker` и настраивает UFW firewall. Открыты только TCP-порты `22`, `80`, `443`, `8080` и `9090`; входящий трафик по умолчанию запрещён, исходящий разрешён.
+Плейбук `playbook.yml` устанавливает базовые утилиты, Docker Engine, Docker Compose plugin, Nginx reverse proxy, добавляет SSH-пользователя в группу `docker` и настраивает UFW firewall. Открыты только TCP-порты `22`, `80`, `443`, `8080` и `9090`; входящий трафик по умолчанию запрещён, исходящий разрешён.
+
+После применения инфраструктурного плейбука публичный вход в приложение доступен через Nginx:
+
+```text
+http://hexlet-vorobev.chickenkiller.com
+```
 
 ## Deployment
 
@@ -195,8 +202,8 @@ make deploy
 Проверка загрузки и получения ссылки:
 
 ```bash
-curl -F "file=@/path/to/image.png" http://62.84.122.118:8080/api/files/upload
-curl "http://62.84.122.118:8080/api/files/view?key=<key-from-upload-response>"
+curl -F "file=@/path/to/image.png" http://hexlet-vorobev.chickenkiller.com/api/files/upload
+curl "http://hexlet-vorobev.chickenkiller.com/api/files/view?key=<key-from-upload-response>"
 ```
 
 Если S3-переменные заполнены, приложение использует S3. Если они пустые, приложение переключается на локальное файловое хранилище внутри volume `/opt/bulletin-board/data`.
