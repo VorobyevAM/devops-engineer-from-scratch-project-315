@@ -156,6 +156,51 @@ docker restart bulletin-board-postgres
 docker ps
 ```
 
+## S3 Object Storage
+
+Production-профиль умеет хранить пользовательские файлы в S3-compatible storage. Для Yandex Object Storage создайте отдельный bucket, например:
+
+```text
+hexlet-vorobev-bulletin-files
+```
+
+Ручные шаги в Yandex Cloud:
+
+1. Создайте bucket в Object Storage. Регион для Yandex Object Storage: `ru-central1`, endpoint: `https://storage.yandexcloud.net`.
+2. Создайте service account для приложения, например `bulletin-board-storage`.
+3. Выдайте service account минимальные права на bucket: чтение и запись объектов. Для учебного проекта подойдет роль `storage.editor` на конкретный bucket или каталог, если bucket-level policy недоступна.
+4. Создайте static access key для service account и сохраните `Access Key ID` / `Secret Access Key` только в Ansible Vault или GitHub Secrets.
+5. Если файлы должны открываться без presigned URL, настройте публичное чтение объектов и задайте `STORAGE_S3_CDNURL`. Если публичное чтение не нужно, не задавайте `STORAGE_S3_CDNURL`: приложение будет генерировать presigned ссылки.
+
+S3-секреты добавляются в `group_vars/app_servers/vault.yml`:
+
+```yaml
+app_secret_env:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://bulletin-board-postgres:5432/bulletins
+  SPRING_DATASOURCE_USERNAME: bulletins
+  SPRING_DATASOURCE_PASSWORD: change-me
+  STORAGE_S3_BUCKET: hexlet-vorobev-bulletin-files
+  STORAGE_S3_REGION: ru-central1
+  STORAGE_S3_ENDPOINT: https://storage.yandexcloud.net
+  STORAGE_S3_ACCESSKEY: <access-key-id>
+  STORAGE_S3_SECRETKEY: <secret-access-key>
+```
+
+После обновления Vault примените деплой:
+
+```bash
+make deploy
+```
+
+Проверка загрузки и получения ссылки:
+
+```bash
+curl -F "file=@/path/to/image.png" http://62.84.122.118:8080/api/files/upload
+curl "http://62.84.122.118:8080/api/files/view?key=<key-from-upload-response>"
+```
+
+Если S3-переменные заполнены, приложение использует S3. Если они пустые, приложение переключается на локальное файловое хранилище внутри volume `/opt/bulletin-board/data`.
+
 ## DNS
 
 Зарегистрируйте домен или бесплатный домен третьего уровня и создайте A-запись на публичный IP сервера:
