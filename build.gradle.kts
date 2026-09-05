@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.springBootStarterDataJpa)
     implementation(libs.springBootStarterValidation)
     implementation(libs.springBootStarterActuator)
+    implementation("org.flywaydb:flyway-core")
     implementation(libs.mapstruct)
     implementation(libs.instancioCore)
     implementation(libs.springdocOpenapi)
@@ -53,6 +54,7 @@ dependencies {
     testRuntimeOnly(libs.junitPlatformLauncher)
     runtimeOnly("com.h2database:h2")
     runtimeOnly(libs.postgresql)
+    runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     implementation(libs.jacksonDatabindNullable)
     implementation(libs.datafaker)

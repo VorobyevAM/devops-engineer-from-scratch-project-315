@@ -1,4 +1,15 @@
 ---
+- name: Validate database secrets
+  ansible.builtin.assert:
+    that:
+      - postgres_user is defined
+      - postgres_password is defined
+      - app_secret_env.SPRING_DATASOURCE_URL is defined
+      - app_secret_env.SPRING_DATASOURCE_USERNAME is defined
+      - app_secret_env.SPRING_DATASOURCE_PASSWORD is defined
+    fail_msg: "Database credentials must be stored in encrypted group_vars/app_servers/vault.yml."
+  no_log: true
+
 - name: Create application directories
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -13,6 +24,77 @@
       mode: "0777"
     - path: "{{ app_logs_dir }}"
       mode: "0755"
+    - path: "{{ app_migrations_dir }}"
+      mode: "0755"
+    - path: "{{ postgres_data_dir }}"
+      mode: "0700"
+
+- name: Create private application network
+  community.docker.docker_network:
+    name: "{{ app_network }}"
+
+- name: Build PostgreSQL environment
+  ansible.builtin.set_fact:
+    postgres_container_env:
+      POSTGRES_DB: "{{ postgres_db | string }}"
+      POSTGRES_USER: "{{ postgres_user | string }}"
+      POSTGRES_PASSWORD: "{{ postgres_password | string }}"
+  no_log: true
+
+- name: Run PostgreSQL container
+  community.docker.docker_container:
+    name: "{{ postgres_container_name }}"
+    image: "{{ postgres_image }}"
+    state: started
+    restart_policy: unless-stopped
+    pull: always
+    env: "{{ postgres_container_env }}"
+    networks:
+      - name: "{{ app_network }}"
+    volumes:
+      - "{{ postgres_data_dir }}:/var/lib/postgresql/data"
+    comparisons:
+      image: strict
+      env: strict
+      volumes: strict
+      networks: strict
+
+- name: Wait for PostgreSQL
+  community.docker.docker_container_exec:
+    container: "{{ postgres_container_name }}"
+    command: "pg_isready -U {{ postgres_user }} -d {{ postgres_db }}"
+  register: postgres_ready
+  retries: 30
+  delay: 2
+  until: postgres_ready.rc == 0
+  changed_when: false
+  no_log: true
+
+- name: Upload Flyway migrations
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/src/main/resources/db/migration/"
+    dest: "{{ app_migrations_dir }}/"
+    mode: "0644"
+
+- name: Run database migrations
+  community.docker.docker_container:
+    name: "{{ app_container_name }}-migrations"
+    image: "{{ flyway_image }}"
+    state: started
+    cleanup: true
+    detach: false
+    pull: always
+    command:
+      - "-url={{ app_secret_env.SPRING_DATASOURCE_URL }}"
+      - "-user={{ app_secret_env.SPRING_DATASOURCE_USERNAME }}"
+      - "-password={{ app_secret_env.SPRING_DATASOURCE_PASSWORD }}"
+      - "-locations=filesystem:/flyway/sql"
+      - "migrate"
+    networks:
+      - name: "{{ app_network }}"
+    volumes:
+      - "{{ app_migrations_dir }}:/flyway/sql:ro"
+  no_log: true
 
 - name: Log in to container registry
   community.docker.docker_login:
@@ -29,6 +111,12 @@
     name: "{{ app_image }}:{{ app_image_tag }}"
     pull: "{{ app_pull_policy }}"
 
+- name: Build container environment
+  ansible.builtin.set_fact:
+    app_container_env: "{{ app_container_env | default({}) | combine({item.key: item.value | string}) }}"
+  loop: "{{ (app_env | combine(app_secret_env | default({}))) | dict2items }}"
+  no_log: true
+
 - name: Run application container
   community.docker.docker_container:
     name: "{{ app_container_name }}"
@@ -37,7 +125,9 @@
     restart_policy: unless-stopped
     pull: never
     recreate: false
-    env: "{{ app_env | combine(app_secret_env | default({})) }}"
+    env: "{{ app_container_env }}"
+    networks:
+      - name: "{{ app_network }}"
     published_ports:
       - "{{ app_host_port }}:{{ app_container_port }}"
       - "{{ app_management_host_port }}:{{ app_management_container_port }}"
@@ -49,6 +139,7 @@
       env: strict
       published_ports: strict
       volumes: strict
+      networks: strict
 
 - name: Wait for application health endpoint
   ansible.builtin.uri:

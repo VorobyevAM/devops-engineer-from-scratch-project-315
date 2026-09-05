@@ -4,6 +4,8 @@ app_container_name: bulletin-board
 app_image: ghcr.io/vorobyevam/devops-engineer-from-scratch-project-315
 app_image_tag: latest
 app_registry: ghcr.io
+app_domain: hexlet-vorobev.chickenkiller.com
+app_network: bulletin-board
 app_host_port: 8080
 app_container_port: 8080
 app_management_host_port: 9090
@@ -11,10 +13,19 @@ app_management_container_port: 9090
 app_base_dir: /opt/bulletin-board
 app_data_dir: "{{ app_base_dir }}/data"
 app_logs_dir: "{{ app_base_dir }}/logs"
+app_migrations_dir: "{{ app_base_dir }}/migrations"
 app_pull_policy: always
 
+postgres_container_name: bulletin-board-postgres
+postgres_image: postgres:16-alpine
+postgres_data_dir: "{{ app_base_dir }}/postgres"
+postgres_db: bulletins
+postgres_port: "5432"
+
+flyway_image: flyway/flyway:11-alpine
+
 app_env:
-  SPRING_PROFILES_ACTIVE: dev
+  SPRING_PROFILES_ACTIVE: prod
   MANAGEMENT_SERVER_PORT: "{{ app_management_container_port }}"
   JAVA_OPTS: "-Djava.io.tmpdir=/app/data/tmp"
 

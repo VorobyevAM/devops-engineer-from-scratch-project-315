@@ -30,7 +30,8 @@ docker-run:
 docker-start: docker-run
 
 ansible-install:
-	ansible-galaxy install -r requirements.yml
+	ansible-galaxy role install -r requirements.yml -p .ansible/roles
+	ansible-galaxy collection install -r requirements.yml -p .ansible/collections
 
 ansible-check:
 	ansible-playbook playbook.yml --check --diff
@@ -42,9 +43,15 @@ ansible-ping:
 	ansible app_servers -m ping
 
 deploy:
-	ansible-playbook deploy.yml -e app_image_tag=$(IMAGE_TAG)
+	ansible-playbook deploy.yml --ask-vault-pass -e app_image_tag=$(IMAGE_TAG)
 
 rollback: deploy
+
+deploy-vault:
+	ansible-playbook deploy.yml --ask-vault-pass -e app_image_tag=$(IMAGE_TAG)
+
+deploy-no-vault:
+	ansible-playbook deploy.yml -e app_image_tag=$(IMAGE_TAG)
 
 vault-create:
 	cp group_vars/app_servers/vault.yml.example group_vars/app_servers/vault.yml
@@ -53,4 +60,4 @@ vault-create:
 vault-edit:
 	ansible-vault edit group_vars/app_servers/vault.yml
 
-.PHONY: build test start run install docker-build docker-run docker-start update-gradle ansible-install ansible-check ansible-run ansible-ping deploy rollback vault-create vault-edit
+.PHONY: build test start run install docker-build docker-run docker-start update-gradle ansible-install ansible-check ansible-run ansible-ping deploy rollback deploy-vault deploy-no-vault vault-create vault-edit

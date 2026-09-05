@@ -12,6 +12,7 @@
 - Management / Actuator port: `9090`
 - GitHub Actions workflow: tests on `push`/`pull_request` for `main`, image publish to `GHCR` only on successful `push` to `main`
 - Infrastructure target: Yandex Cloud VM configured by Ansible
+- Domain name: `hexlet-vorobev.chickenkiller.com`
 
 ## Quick Start
 
@@ -49,8 +50,10 @@ docker run --rm \
 - `make ansible-install` — установка внешних Ansible-ролей
 - `make ansible-check` — проверочный запуск плейбука в check-mode
 - `make ansible-run` — применение плейбука к серверу
-- `make deploy` — деплой Docker-контейнера на сервер
+- `make deploy` — деплой Docker-контейнера на сервер с секретами из Ansible Vault
 - `make rollback IMAGE_TAG=sha-<git-sha>` — откат на конкретный стабильный тег образа
+- `make deploy-vault` — деплой с запросом пароля Ansible Vault
+- `make deploy-no-vault` — деплой без Vault, если секреты уже переданы другим способом
 - `make vault-create` — создание зашифрованного файла секретов Ansible Vault
 - `make vault-edit` — редактирование секретов Ansible Vault
 
@@ -100,7 +103,7 @@ make ansible-run
 
 ## Deployment
 
-Деплой выполняется отдельным playbook `deploy.yml`, который подтягивает Docker-образ, запускает контейнер и ждёт готовности actuator health endpoint:
+Деплой выполняется отдельным playbook `deploy.yml`, который поднимает PostgreSQL, применяет Flyway-миграции, подтягивает Docker-образ приложения, запускает контейнер и ждёт готовности actuator health endpoint:
 
 ```bash
 make deploy
@@ -125,7 +128,65 @@ cp group_vars/app_servers/vault.yml.example group_vars/app_servers/vault.yml
 ansible-vault encrypt group_vars/app_servers/vault.yml
 ```
 
-Каталоги `/opt/bulletin-board/data` и `/opt/bulletin-board/logs` создаются на сервере автоматически и монтируются в контейнер. Для локального хранения загрузок приложение использует `/app/data/tmp`, поэтому данные переживают перезапуск контейнера.
+Минимальный набор секретов для PostgreSQL-контейнера на той же ВМ:
+
+```yaml
+postgres_user: bulletins
+postgres_password: change-me
+app_secret_env:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://bulletin-board-postgres:5432/bulletins
+  SPRING_DATASOURCE_USERNAME: bulletins
+  SPRING_DATASOURCE_PASSWORD: change-me
+```
+
+Для deploy с Vault:
+
+```bash
+make deploy
+```
+
+Каталоги `/opt/bulletin-board/data`, `/opt/bulletin-board/logs`, `/opt/bulletin-board/migrations` и `/opt/bulletin-board/postgres` создаются на сервере автоматически. PostgreSQL хранит данные в `/opt/bulletin-board/postgres`, поэтому данные переживают перезапуск контейнеров. Приложение и БД общаются через приватную Docker-сеть `bulletin-board`; порт PostgreSQL наружу не публикуется.
+
+Проверка persistence после деплоя:
+
+```bash
+ssh yc-user@62.84.122.118
+docker restart bulletin-board
+docker restart bulletin-board-postgres
+docker ps
+```
+
+## DNS
+
+Зарегистрируйте домен или бесплатный домен третьего уровня и создайте A-запись на публичный IP сервера:
+
+```text
+Type: A
+Name: hexlet-vorobev.chickenkiller.com
+Value: 62.84.122.118
+TTL: 300
+```
+
+Если провайдер просит указать только поддомен, для `app.example.com` в поле `Name` обычно указывается `app`, а для корневого домена `example.com` — `@`.
+
+Проверьте DNS после создания записи:
+
+```bash
+dig +short hexlet-vorobev.chickenkiller.com
+nslookup hexlet-vorobev.chickenkiller.com
+```
+
+Ожидаемый результат:
+
+```text
+62.84.122.118
+```
+
+После изменения DNS-записи повторите деплой:
+
+```bash
+make deploy
+```
 
 Если pull из `GHCR` завершается ошибкой `denied`, проверьте два сценария:
 
@@ -140,7 +201,7 @@ app_registry_password: ghp_token_with_read_packages
 После этого запускайте деплой с запросом пароля Vault:
 
 ```bash
-ansible-playbook deploy.yml --ask-vault-pass -e app_image_tag=latest
+make deploy-vault
 ```
 
 ## Notes
@@ -150,4 +211,4 @@ ansible-playbook deploy.yml --ask-vault-pass -e app_image_tag=latest
 - Исходный upstream-репозиторий `Hexlet-components/project-devops-deploy` остаётся read-only; все изменения ведутся только в этом форке.
 - Workflow публикует теги `latest` и `sha-<7 символов коммита>` в `GHCR` через `GITHUB_TOKEN`, без хранения токенов и паролей в репозитории.
 - Ansible-плейбук рассчитан на повторные запуски: пакеты, Docker, compose plugin, firewall rules и membership в `docker` group описаны декларативно.
-- Деплой-плейбук тоже можно запускать повторно: образ подтягивается из registry, а контейнер пересоздаётся только при изменении образа или его параметров.
+- Деплой-плейбук тоже можно запускать повторно: PostgreSQL сохраняет данные в bind mount, Flyway применяет только новые миграции, образ подтягивается из registry, а контейнер приложения пересоздаётся только при изменении образа или параметров.

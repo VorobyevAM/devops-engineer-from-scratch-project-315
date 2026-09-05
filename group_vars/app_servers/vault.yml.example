@@ -9,9 +9,11 @@ app_secret_env: {}
 
 # app_registry_username: username
 # app_registry_password: token-or-password
+# postgres_user: bulletins
+# postgres_password: change-me
 # app_secret_env:
-#   SPRING_DATASOURCE_URL: jdbc:postgresql://db-host:5432/bulletins
-#   SPRING_DATASOURCE_USERNAME: app
+#   SPRING_DATASOURCE_URL: jdbc:postgresql://bulletin-board-postgres:5432/bulletins
+#   SPRING_DATASOURCE_USERNAME: bulletins
 #   SPRING_DATASOURCE_PASSWORD: change-me
 #   STORAGE_S3_BUCKET: bucket-name
 #   STORAGE_S3_REGION: ru-central1
