@@ -5,6 +5,7 @@ group_vars/**/vault.yml
 vault-password*
 frontend/node_modules/
 frontend/dist/
+roles/geerlingguy.docker/
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar
